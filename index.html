@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>遗传与进化 · 可视化高效习题工坊</title>
+    <!-- Tailwind CSS CDN (支持动态类名扫描) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 自定义动画与基础样式 -->
+    <style>
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fade-in 0.35s ease-out;
+        }
+        @keyframes pulse-soft {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .animate-pulse-soft {
+            animation: pulse-soft 2s infinite;
+        }
+        /* 打印时隐藏导航等元素 */
+        @media print {
+            header, nav, .no-print { display: none !important; }
+            body { background: white !important; }
+            .print-area { padding: 0 !important; margin: 0 !important; }
+        }
+        .print-area {
+            page-break-inside: avoid;
+        }
+        /* 滚动条美化 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        /* 一些图标文字强制居中 */
+        .icon-emoji {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased selection:bg-indigo-150 selection:text-indigo-900">
+    <div id="root"></div>
+
+    <!-- 引入 React, ReactDOM, Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- 应用核心脚本 -->
+    <script type="text/babel">
+        // 解构常用 Hooks
+        const { useState, useEffect } = React;
+
+        // ==========================================
+        // 图标映射组件 (替代 lucide-react)
+        // ==========================================
+        const iconMap = {
+            BookOpen: '',
+            CheckCircle2: '✅',
+            XCircle: '❌',
+            RotateCcw: '',
+            FileText: '',
+            BrainCircuit: '🧠',
+            Check: '✔️',
+            ChevronRight: '▶️',
+            ChevronLeft: '◀️',
+            Sliders: '️',
+            Dna: '🧬',
+            Sparkles: '✨',
+            HelpCircle: '❓',
+            TrendingUp: '',
+            Printer: '️',
+            Award: '',
+            BookMarked: ''
+        };
+
+        const Icon = ({ name, className = '', style = {} }) => {
+            const emoji = iconMap[name] || '';
+            return (
+                <span 
+                    className={`icon-emoji ${className}`} 
+                    style={{ fontSize: 'inherit', ...style }}
+                    role="img" 
+                    aria-label={name}
+                >
+                    {emoji}
+                </span>
+            );
+        };
+
+        // ==========================================
+        // 1. 核心习题数据库 (13道高质量、多情境高考试题)
+        // ==========================================
+        const QUESTIONS = [
+            {
+                id: 1, type: 'MCQ', category: 'mendel', title: '性状分离的本质', difficulty: '中等',
+                question: '在孟德尔一对相对性状的杂交实验中，出现性状分离的是（ ）',
+                options: [
+                    { key: 'A', text: '杂合的红花豌豆自交产生红花和白花后代' },
+                    { key: 'B', text: '纯合的红花豌豆与白花豌豆杂交产生红花后代' },
+                    { key: 'C', text: '杂合的红花豌豆与白花豌豆杂交产生白花后代' },
+                    { key: 'D', text: '纯合的红花豌豆与杂合的红花豌豆杂交产生红花后代' }
+                ],
+                answer: 'A',
+                explanation: '性状分离是指在杂种后代中，同时显现出显性性状和隐性性状的现象。杂合的红花豌豆（Rr）属于杂种，其自交后代会按 3:1 的比例分化出红花（显性）和白花（隐性），符合性状分离定义。而B和D后代只有一种表型；C属于测交，不是自交性状分离的典型体现。'
+            },
+            {
+                id: 2, type: 'MCQ', category: 'mendel', title: '纯杂合子的鉴定思维', difficulty: '中等',
+                question: '番茄的红果色（R）对黄果色（r）为显性。以下关于鉴定一株结红果的番茄植株是纯合子还是杂合子的叙述，正确的是（ ）',
+                options: [
+                    { key: 'A', text: '可通过与红果纯合子杂交来鉴定' },
+                    { key: 'B', text: '可通过与黄果纯合子杂交来鉴定' },
+                    { key: 'C', text: '不能通过该红果植株自交来鉴定' },
+                    { key: 'D', text: '不能通过与红果杂合子杂交来鉴定' }
+                ],
+                answer: 'B',
+                explanation: '鉴定红果番茄（R_）基因型的最佳方法是测交，即与隐性纯合子黄果番茄（rr）杂交。若后代全为红果，说明原植株为纯合子（RR）；若后代出现黄果，说明原植株为杂合子（Rr）。番茄是自花传粉植物，自交同样可以用来鉴定（若后代出现黄果则为杂合子），因此C选项错误。与红果纯合子（RR）杂交，后代全是红果，无法区分，因此A错误。'
+            },
+            {
+                id: 3, type: 'MCQ', category: 'mendel', title: '假说—演绎法的理解', difficulty: '中等',
+                question: '孟德尔在研究中运用了假说—演绎法，以下叙述不属于“假说”内容的是（ ）',
+                options: [
+                    { key: 'A', text: '受精时，雌雄配子随机结合' },
+                    { key: 'B', text: '形成配子时，成对的遗传因子分离' },
+                    { key: 'C', text: 'F2中既有高茎又有矮茎，性状分离比接近 3 : 1' },
+                    { key: 'D', text: '性状是由遗传因子决定的，在体细胞中遗传因子成对存在' }
+                ],
+                answer: 'C',
+                explanation: '“F2中既有高茎又有矮茎，性状分离比接近 3:1”是孟德尔进行杂交实验时观察到的【实际现象/实验结果】，属于“提出问题”阶段，不属于解释该现象时提出的“假说”内容。A、B、D均属于孟德尔针对性状分离现象所提出的四点假说核心内容。'
+            },
+            {
+                id: 4, type: 'MCQ', category: 'meiosis', title: '减数分裂图解判读', difficulty: '困难',
+                question: '在显微镜下观察某哺乳动物的细胞分裂图像，若发现某细胞不含同源染色体，着丝粒尚未分裂，染色体排列在赤道板上，且细胞质呈现明显的不均等分裂，则该细胞最可能是（ ）',
+                options: [
+                    { key: 'A', text: '初级精母细胞' },
+                    { key: 'B', text: '次级精母细胞' },
+                    { key: 'C', text: '次级卵母细胞' },
+                    { key: 'D', text: '第一极体' }
+                ],
+                answer: 'C',
+                explanation: '根据细胞特征分析：1. 不含同源染色体，着丝粒未分裂，染色体排在赤道板上，说明该细胞处于减数分裂Ⅱ中期。2. 细胞质呈现明显“不均等分裂”，这属于次级卵母细胞在减Ⅱ中期/后期的显著标志（第一极体分裂是均等的，精子产生细胞均为均等分裂）。因此该细胞最可能是次级卵母细胞。'
+            },
+            {
+                id: 5, type: 'MCQ', category: 'meiosis', title: '基因与染色体的平行行为', difficulty: '简单',
+                question: '基因和染色体的行为存在平行关系。下列相关表述中错误的是（ ）',
+                options: [
+                    { key: 'A', text: '复制的两个基因随姐妹染色单体分开而分开' },
+                    { key: 'B', text: '同源染色体分离时，等位基因也随之分离' },
+                    { key: 'C', text: '非同源染色体数量越多，非等位基因组合的种类也越多' },
+                    { key: 'D', text: '非同源染色体自由组合，使所有非等位基因也自由组合' }
+                ],
+                answer: 'D',
+                explanation: '只有位于【非同源染色体】上的非等位基因才在减Ⅰ后期随着非同源染色体的自由组合而自由组合。若两个非等位基因位于【同一条同源染色体】上（同源联动），在不发生交叉互换的前提下它们倾向于一起遗传，不遵循自由组合定律，故D说法中“所有”是不正确的。'
+            },
+            {
+                id: 6, type: 'MCQ', category: 'molecular', title: '伴X显性遗传病规律', difficulty: '困难',
+                question: '下列关于X染色体上的显性基因决定的遗传病（如抗维生素D佝偻病）的叙述，正确的是（ ）',
+                options: [
+                    { key: 'A', text: '男性患者的后代中，子女各有 1/2 的概率患病' },
+                    { key: 'B', text: '女性患者的后代中，女儿一定都患病，儿子都正常' },
+                    { key: 'C', text: '表现正常的夫妇，其性染色体上也可能携带致病基因' },
+                    { key: 'D', text: '患者中女性多于男性，患者的双亲中至少有一方是患者' }
+                ],
+                answer: 'D',
+                explanation: '伴X显性遗传病的遗传特点：1. 显性致病基因位于X染色体上，正常的夫妇不携带致病基因（C错）。2. 男性患者（X^A Y）与正常女性（X^a X^a）结婚，女儿必得X^A而100%患病，儿子必得Y而100%正常（A错）。3. 女性患者若为杂合子（X^A X^a），后代儿女各有1/2概率患病（B错）。4. 女性有两条X染色体，患病几率大；由于是显性病，患者的致病基因必来自亲代，故双亲至少有一方患病（D正确）。'
+            },
+            {
+                id: 7, type: 'MCQ', category: 'molecular', title: 'DNA结构的数学计算', difficulty: '中等',
+                question: '在含有4种碱基的双链DNA区段中，腺嘌呤有 a 个，占该区段全部碱基的比例为 b，则该区段中的胞嘧啶（C）数量为多少个（ ）',
+                options: [
+                    { key: 'A', text: 'a / b 个' },
+                    { key: 'B', text: 'a * b 个' },
+                    { key: 'C', text: 'a * ( 1 / 2b  -  1 ) 个' },
+                    { key: 'D', text: 'b * ( 1 / 2a  -  1 ) 个' }
+                ],
+                answer: 'C',
+                explanation: '设碱基总数为 N。因为腺嘌呤（A）占全部碱基的比例为 b，且数量为 a，所以总碱基数 N = a / b。\n在双链DNA中，根据碱基互补配对原则：A = T = a，G = C。\n因此，A + T + G + C = N，代入得 2a + 2C = a / b \n解方程可得：2C = a / b - 2a  =>  C = a / (2b) - a = a * (1 / 2b - 1)。故选C。'
+            },
+            {
+                id: 8, type: 'MCQ', category: 'evolution', title: '基因频率计算', difficulty: '中等',
+                question: '某一瓢虫种群中有黑色和红色两种体色的个体，这一性状由一对等位基因控制，黑色（B）对红色（b）为显性。如果基因型为 BB 的个体占 18%，基因型为 Bb 的个体占 78%，基因型为 bb 的个体占 4%。那么基因 B 和 b 的频率分别为多少（ ）',
+                options: [
+                    { key: 'A', text: '18%、82%' },
+                    { key: 'B', text: '36%、64%' },
+                    { key: 'C', text: '57%、43%' },
+                    { key: 'D', text: '92%、8%' }
+                ],
+                answer: 'C',
+                explanation: '在一个种群中，某等位基因的频率 = 该基因纯合子的频率 + 1/2 * 杂合子的频率。\n因此：\nB 基因的频率 = BB基因型频率 + 1/2 * Bb基因型频率 = 18% + 1/2 * 78% = 18% + 39% = 57%。\nb 基因的频率 = bb基因型频率 + 1/2 * Bb基因型频率 = 4% + 1/2 * 78% = 4% + 39% = 43%（或者 1 - 57% = 43%）。故选C。'
+            },
+            {
+                id: 9, type: 'FRQ', category: 'mendel', title: '自由组合定律的应用与基因型推导', difficulty: '困难',
+                question: '番茄的紫茎和绿茎是一对相对性状，缺刻叶和马铃薯叶是一对相对性状，两对基因独立遗传。利用三种不同基因型的番茄进行杂交，实验结果如下：\n杂交组合：紫茎缺刻叶 × 绿茎缺刻叶 -> 子代：紫茎缺刻叶：紫茎马铃薯叶：绿茎缺刻叶：绿茎马铃薯叶 = 3 : 1 : 3 : 1。\n\n请回答下列问题：\n（1）如何根据上述子代比例判断缺刻叶和马铃薯叶的显隐性？哪一个是显性性状？\n（2）若控制茎色的基因为 A/a，叶形的基因为 B/b，写出亲本紫茎缺刻叶与绿茎缺刻叶的基因型。',
+                modelAnswer: '（1）单独分析叶形性状：子代中缺刻叶 : 马铃薯叶 = (3+3) : (1+1) = 6:2 = 3:1。发生了性状分离，且缺刻叶占3/4，由此可判定【缺刻叶为显性性状】，马铃薯叶为隐性性状。\n（2）亲本中紫茎缺刻叶的基因型为 AaBb，绿茎缺刻叶的基因型为 aaBb。',
+                evaluation: '踩分点：\n1. 指出缺刻叶 : 马铃薯叶的比例为 3:1。\n2. 明确得出缺刻叶为显性性状。\n3. 写对两个亲本基因型为 AaBb 和 aaBb。'
+            },
+            {
+                id: 10, type: 'FRQ', category: 'meiosis', title: '减数分裂异常与唐氏综合征成因', difficulty: '困难',
+                question: '正常人的体细胞中有23对染色体。有一种叫“21三体综合征”（唐氏综合征）的遗传病，患者的体细胞中多了一条21号染色体（共3条）。请从精子或卵细胞形成的减数分裂异常角度，详细分析并阐述这种病产生的原因。',
+                modelAnswer: '唐氏综合征患者多出一条21号染色体，是因为其双亲之一在产生配子时发生了减数分裂异常，提供了含有2条21号染色体的异常配子，该配子与正常的单倍体配子受精后发育成病患。成因包含以下两种可能：\n1. 减数分裂Ⅰ异常：在减数分裂Ⅰ后期，21号同源染色体未能正常分离移向两极，而是随同源染色体一同进入了同一个次级精（卵）母细胞。之后减数分裂Ⅱ正常，最终产生含有2条21号染色体的配子。\n2. 减数分裂Ⅱ异常：减数分裂Ⅰ同源分离正常，但在减数分裂Ⅱ后期，21号染色体的姐妹染色单体分裂后未分别移向两极，而是移向了同一极，最终形成了含有2条21号染色体的异常配子。',
+                evaluation: '踩分点：\n1. 明确表明是“含有2条21号染色体的异常配子与正常的配子受精结合”。\n2. 准确描述减数分裂Ⅰ后期同源染色体未分离。\n3. 准确描述减数分裂Ⅱ后期姐妹染色单体分裂后未正常移向两极。'
+            },
+            {
+                id: 11, type: 'FRQ', category: 'mendel', title: '伴性遗传与优生阻断综合分析', difficulty: '中等',
+                question: '果蝇的灰身（B）对黑身（b）为显性。某研究小组让一只灰身雄果蝇与一只灰身雌果蝇杂交，子一代中灰身 : 黑身 = 3:1。\n（1）仅根据此比例，能否直接断定控制该性状的基因位于常染色体还是X染色体上？说明你的推导思路。\n（2）已知抗维生素D佝偻病是X染色体显性遗传病，如果一个男性患者与正常女性结婚，在产前诊断时，应采取怎样的性别筛选措施以保障生育健康的后代？说明理由。',
+                modelAnswer: '（1）不能。因为如果是常染色体遗传（Bb × Bb），子代表型比为 3:1；如果是伴X染色体遗传（X^B Y × X^B X^b），子代表型比也是 3:1（雌蝇全为灰身，雄蝇中灰身:黑身=1:1）。进一步判定需要统计【黑身果蝇的性别】。若黑身全是雄性，则在X染色体上；若黑身中雌雄比例为 1:1，则在常染色体上。\n\n（2）应当【选择生育男孩，避免生育女孩】。因为伴X显性病中，父亲（X^A Y）的致病基因 X^A 一定会传给女儿，导致女儿100%患病；而传给儿子的Y染色体不含致病基因，因而儿子100%正常。',
+                evaluation: '踩分点：\n1. 第一问指出3:1可能是常染色体杂合子自交，也可能是伴X染色体雄显与雌杂合杂交。\n2. 提出要统计“黑身个体的性别比例”进行区分。\n3. 第二问明确写出“选择生男孩”。\n4. 合理解释：父亲必将含有显性致病基因的X染色体传给所有女儿，不传给儿子。'
+            },
+            {
+                id: 12, type: 'FRQ', category: 'molecular', title: '苯丙氨酸生化代谢途径与基因控制机制', difficulty: '困难',
+                question: '人体内苯丙氨酸的代谢途径包含：\n① 苯丙氨酸 -(在酶①作用下)-> 酪氨酸 -(在酶⑤作用下)-> 黑色素\n② 苯丙氨酸 -(在酶②作用下)-> 苯丙酮酸（过量在脑中积累阻碍大脑发育，导致苯丙酮尿症）\n③ 酪氨酸 -(在酶③作用下)-> 尿黑酸 -(在酶④作用下)-> 乙酰乙酸和延胡索酸\n\n请回答：\n（1）白化病是由于缺乏上述哪个酶导致的？尿黑酸无法正常催化降解（尿黑酸症）是由于缺乏哪个酶导致的？\n（2）从这个例子中，总结基因、酶（生化代谢）和生物性状（遗传病）这三者之间的深层关系。',
+                modelAnswer: '（1）缺乏 酶⑤ 导致酪氨酸无法转化为黑色素，人会患白化病；缺乏 酶③ 导致尿黑酸无法正常分解转化而积累，从而患尿黑酸症。\n\n（2）这说明了基因控制生物性状的【间接途径】：基因通过控制【酶的合成】来控制【细胞生化代谢过程】，进而间接控制【生物体的性状】。同时也体现出一个性状（如黑色素产生）可能受到多对基因（如控制酶①和酶⑤的基因）共同调控的特点。',
+                evaluation: '踩分点：\n1. 白化病对应酶⑤缺乏，尿黑酸症对应酶③缺乏。\n2. 总结出：基因通过控制酶的合成来控制代谢过程，进而控制性状（间接控制）。\n3. 意识到“多个基因可以共同调控同一个表型性状”。'
+            },
+            {
+                id: 13, type: 'FRQ', category: 'evolution', title: 'DDT与害虫抗药性的选择与协同进化', difficulty: '中等',
+                question: '在DDT杀虫剂广泛使用初期，灭虫效果显著。但连续使用数年之后，蚊蝇等害虫的抗药性越来越强。有人提出：“是DDT大剂量的喷洒诱导了害虫产生抗药性突变，最终导致DDT失效”。请运用现代生物进化理论，对该观点的谬误进行科学驳斥，并给出正确的进化论解释。',
+                modelAnswer: '1. 该观点是错误的。DDT并不能“诱导”害虫发生抗药性突变。抗药性相关的突变基因，在DDT使用之前，就已经由于基因突变和基因重组【随机、不定向】地存在于害虫种群中了，DDT只是起到了【选择】作用。\n\n2. 正确解释：害虫群体中本来就存在抗药性强和抗药性弱的变异个体。当大量使用DDT后，不抗药的个体被选择性淘汰大量死亡，而极少数具有抗药性突变的个体得以生存并繁衍。经过多代连续的【定向选择】，害虫种群内抗药性基因的【基因频率发生定向改变】（逐年升高），导致种群整体对DDT抗药性极强，从而使杀虫剂失效。',
+                evaluation: '踩分点：\n1. 明确指出“基因突变是不定向的，DDT不起诱导作用，抗药基因在使用前已存在”。\n2. 指出DDT的作用是“定向选择”。\n3. 用进化语言总结：选择导致害虫种群中“抗药性基因频率发生定向改变”。'
+            }
+        ];
+
+        // ==========================================
+        // 2. 章节分类定义
+        // ==========================================
+        const CATEGORIES = [
+            { id: 'all', name: '全部核心习题', count: QUESTIONS.length },
+            { id: 'mendel', name: '孟德尔豌豆杂交规律', count: QUESTIONS.filter(q => q.category === 'mendel').length },
+            { id: 'meiosis', name: '减数分裂与配子异常', count: QUESTIONS.filter(q => q.category === 'meiosis').length },
+            { id: 'molecular', name: '基因的本质与控制机制', count: QUESTIONS.filter(q => q.category === 'molecular').length },
+            { id: 'evolution', name: '自然选择与生物进化论', count: QUESTIONS.filter(q => q.category === 'evolution').length }
+        ];
+
+        // ==========================================
+        // 3. 主应用组件
+        // ==========================================
+        function App() {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [activeCategory, setActiveCategory] = useState('all');
+            const [currentIdx, setCurrentIdx] = useState(0);
+
+            // 答题记录与打分
+            const [userAnswers, setUserAnswers] = useState({});
+            const [submittedAnswers, setSubmittedAnswers] = useState({});
+            const [frqGrades, setFrqGrades] = useState({});
+            const [showExplanation, setShowExplanation] = useState({});
+            const [userFrqInput, setUserFrqInput] = useState({});
+            const [bookmarked, setBookmarked] = useState({});
+
+            // 代谢通路演示状态
+            const [enzyme1Defective, setEnzyme1Defective] = useState(false);
+            const [enzyme3Defective, setEnzyme3Defective] = useState(false);
+            const [enzyme5Defective, setEnzyme5Defective] = useState(false);
+
+            // 减数分裂演示状态
+            const [meiosisStep, setMeiosisStep] = useState(0);
+            const [simulateTrisomy, setSimulateTrisomy] = useState(false);
+
+            const filteredQuestions = QUESTIONS.filter(q => activeCategory === 'all' || q.category === activeCategory);
+
+            useEffect(() => {
+                setCurrentIdx(0);
+            }, [activeCategory]);
+
+            const handleReset = () => {
+                setUserAnswers({});
+                setSubmittedAnswers({});
+                setFrqGrades({});
+                setShowExplanation({});
+                setUserFrqInput({});
+                setCurrentIdx(0);
+            };
+
+            // 统计数据
+            const totalMCQs = QUESTIONS.filter(q => q.type === 'MCQ').length;
+            const totalFRQs = QUESTIONS.filter(q => q.type === 'FRQ').length;
+            const answeredCount = Object.keys(submittedAnswers).length;
+            const progressPercent = Math.round((answeredCount / QUESTIONS.length) * 100) || 0;
+
+            const correctMCQCount = QUESTIONS.filter(q => q.type === 'MCQ').reduce((acc, q) => {
+                return acc + (submittedAnswers[q.id] && userAnswers[q.id] === q.answer ? 1 : 0);
+            }, 0);
+
+            const gradedFRQCount = QUESTIONS.filter(q => q.type === 'FRQ').reduce((acc, q) => {
+                return acc + (frqGrades[q.id] === 'correct' ? 1 : 0);
+            }, 0);
+
+            // 获取当前题目
+            const currentQuestion = filteredQuestions.length > 0 ? filteredQuestions[currentIdx] : null;
+
+            return (
+                <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col antialiased selection:bg-indigo-150 selection:text-indigo-900">
+                    
+                    {/* 页眉与导航 */}
+                    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 no-print">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                                <div className="bg-gradient-to-tr from-indigo-500 to-purple-600 p-2.5 rounded-xl shadow-md shadow-indigo-100">
+                                    <Icon name="Dna" className="h-6 w-6 text-white animate-pulse" />
+                                </div>
+                                <div>
+                                    <h1 className="text-base sm:text-lg font-extrabold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+                                        遗传与进化 · 可视化高效习题工坊
+                                    </h1>
+                                    <p className="text-[10px] sm:text-xs text-slate-400 hidden sm:block">
+                                        精选必修二教材核心习题与重难点生化机制动画演示
+                                    </p>
+                                </div>
+                            </div>
+
+                            <nav className="flex space-x-1 bg-slate-100 p-1 rounded-xl">
+                                <button onClick={() => setActiveTab('dashboard')}
+                                    className={`flex items-center space-x-1 px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition ${activeTab === 'dashboard' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+                                    <Icon name="TrendingUp" className="h-4 w-4" />
+                                    <span className="hidden sm:inline">智能看板</span>
+                                </button>
+                                <button onClick={() => setActiveTab('practice')}
+                                    className={`flex items-center space-x-1 px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition ${activeTab === 'practice' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+                                    <Icon name="BookOpen" className="h-4 w-4" />
+                                    <span>习题精练</span>
+                                </button>
+                                <button onClick={() => setActiveTab('visualizer')}
+                                    className={`flex items-center space-x-1 px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition ${activeTab === 'visualizer' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+                                    <Icon name="Sliders" className="h-4 w-4" />
+                                    <span>动态模型</span>
+                                    <span className="px-1 py-0.5 text-[9px] bg-amber-100 text-amber-800 rounded-full font-extrabold ml-1 animate-bounce">NEW</span>
+                                </button>
+                                <button onClick={() => setActiveTab('printable')}
+                                    className={`flex items-center space-x-1 px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition ${activeTab === 'printable' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+                                    <Icon name="FileText" className="h-4 w-4" />
+                                    <span className="hidden sm:inline">打印清单</span>
+                                    <span className="sm:hidden">清单</span>
+                                </button>
+                            </nav>
+                        </div>
+                    </header>
+
+                    <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+                        
+                        {/* TAB 1: 智能学习看板 */}
+                        {activeTab === 'dashboard' && (
+                            <div className="space-y-8 animate-fade-in">
+                                <div className="relative overflow-hidden bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 rounded-3xl text-white p-6 sm:p-10 shadow-lg shadow-slate-900/10">
+                                    <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 opacity-10 pointer-events-none">
+                                        <Icon name="Dna" className="w-96 h-96" />
+                                    </div>
+                                    <div className="relative z-10 max-w-3xl space-y-4">
+                                        <div className="inline-flex items-center space-x-1 px-3 py-1 bg-indigo-500/20 rounded-full border border-indigo-400/30 text-indigo-300 text-xs font-semibold">
+                                            <Icon name="Sparkles" className="w-3.5 h-3.5 animate-pulse" />
+                                            <span>核心高频考点 100% 覆盖</span>
+                                        </div>
+                                        <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight">
+                                            高考遗传题很难？<br className="sm:hidden" />我们帮你“拆”开来看！
+                                        </h2>
+                                        <p className="text-slate-300 text-xs sm:text-sm leading-relaxed max-w-xl">
+                                            这里精选了人教版新教材中<strong>含金量最高、最常作为大题考查</strong>的13个核心习题，并配有交互式遗传和减数分裂异常的三维式细胞演示，让你更直观地攻克重难点。
+                                        </p>
+                                        <div className="flex flex-wrap gap-3 pt-2">
+                                            <button onClick={() => { setActiveTab('practice'); setActiveCategory('all'); }}
+                                                className="px-4 py-2.5 bg-white text-indigo-900 font-bold rounded-xl hover:bg-slate-100 transition shadow-md text-xs sm:text-sm">
+                                                开始习题自测
+                                            </button>
+                                            <button onClick={() => setActiveTab('visualizer')}
+                                                className="px-4 py-2.5 bg-indigo-600/50 text-white font-bold rounded-xl hover:bg-indigo-600 transition border border-indigo-500/30 text-xs sm:text-sm">
+                                                打开生化机制动态模拟器
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 数据指标 */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                                        <div className="flex items-center justify-between pb-3">
+                                            <span className="text-xs font-bold text-slate-500">自测通关进度</span>
+                                            <div className="bg-indigo-50 text-indigo-600 p-2 rounded-xl"><Icon name="TrendingUp" className="h-4 w-4" /></div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-baseline space-x-1">
+                                                <span className="text-3xl font-extrabold text-slate-900">{answeredCount}</span>
+                                                <span className="text-xs text-slate-400">/ {QUESTIONS.length} 题</span>
+                                            </div>
+                                            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                                                <div className="bg-indigo-600 h-2 rounded-full transition-all duration-350" style={{ width: `${progressPercent}%` }} />
+                                            </div>
+                                            <div className="flex justify-between text-[10px] text-slate-400">
+                                                <span>完成度 {progressPercent}%</span>
+                                                <span>剩余 {QUESTIONS.length - answeredCount} 题</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                                        <div className="flex items-center justify-between pb-3">
+                                            <span className="text-xs font-bold text-slate-500">选择题正确率</span>
+                                            <div className="bg-emerald-50 text-emerald-600 p-2 rounded-xl"><Icon name="CheckCircle2" className="h-4 w-4" /></div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <div className="flex items-baseline space-x-1">
+                                                <span className="text-3xl font-extrabold text-slate-900">
+                                                    {QUESTIONS.filter(q => q.type === 'MCQ' && submittedAnswers[q.id]).length > 0
+                                                        ? Math.round((correctMCQCount / QUESTIONS.filter(q => q.type === 'MCQ' && submittedAnswers[q.id]).length) * 100)
+                                                        : 0}
+                                                </span>
+                                                <span className="text-xs text-slate-400">%</span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 leading-normal">
+                                                已答 MCQ: {QUESTIONS.filter(q => q.type === 'MCQ' && submittedAnswers[q.id]).length} 题 | 正确: {correctMCQCount} 题
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                                        <div className="flex items-center justify-between pb-3">
+                                            <span className="text-xs font-bold text-slate-500">非选择大题掌握率</span>
+                                            <div className="bg-purple-50 text-purple-600 p-2 rounded-xl"><Icon name="Award" className="h-4 w-4" /></div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <div className="flex items-baseline space-x-1">
+                                                <span className="text-3xl font-extrabold text-slate-900">{gradedFRQCount}</span>
+                                                <span className="text-xs text-slate-400">/ {totalFRQs} 题</span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 leading-normal">自主对照踩分点并评定为【完美掌握】的大题数</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                                        <div className="flex items-center justify-between pb-3">
+                                            <span className="text-xs font-bold text-slate-500">重点复习收藏</span>
+                                            <div className="bg-amber-50 text-amber-600 p-2 rounded-xl"><Icon name="BookMarked" className="h-4 w-4" /></div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <div className="flex items-baseline space-x-1">
+                                                <span className="text-3xl font-extrabold text-slate-900">{Object.values(bookmarked).filter(Boolean).length}</span>
+                                                <span className="text-xs text-slate-400">题</span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 leading-normal">已打星标记、需要重点回顾与线下温习的题目数</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 板块自测卡片入口 */}
+                                <div className="space-y-4">
+                                    <h3 className="text-base sm:text-lg font-extrabold text-slate-950 flex items-center gap-2">
+                                        <Icon name="Sparkles" className="w-5 h-5 text-indigo-500 shrink-0" />
+                                        按知识板块精准刷题
+                                    </h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                                        {CATEGORIES.map(cat => {
+                                            const isAll = cat.id === 'all';
+                                            const catQuestions = isAll ? QUESTIONS : QUESTIONS.filter(q => q.category === cat.id);
+                                            const completedInCat = cat
